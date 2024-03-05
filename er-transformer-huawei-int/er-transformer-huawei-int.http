@@ -1,0 +1,6 @@
+@er_transformer_huawei_int_HostAddress = http://localhost:5267
+
+GET {{er_transformer_huawei_int_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
