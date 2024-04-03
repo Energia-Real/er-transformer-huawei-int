@@ -1,13 +1,9 @@
-﻿using er.library.dto.Response;
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using System.Text.Json;
 using System.Text;
 using Microsoft.AspNetCore.Mvc;
 using er_transformer_huawei_int.Models;
-using System.Text.Json.Serialization;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc.RazorPages;
-using System;
+using er_transformer_huawei_int.Enums;
 
 namespace er_transformer_huawei_int.EndPoints
 {
@@ -21,6 +17,8 @@ namespace er_transformer_huawei_int.EndPoints
             GetPlantListMethod(routeBuilder);
             GetDevListMethod(routeBuilder);
             GetPlantMethod(routeBuilder);
+            GetTheLastFiveMinutes(routeBuilder);
+            GetRealTimeInfo(routeBuilder);
         }
 
         private static void GetPlantListMethod(RouteGroupBuilder rgb)
@@ -90,17 +88,17 @@ namespace er_transformer_huawei_int.EndPoints
 
                 if (plantList is null)
                 {
-                   return Results.NoContent();
+                    return Results.NoContent();
                 }
 
-                var filteredPlant = plantList.Data.List.FirstOrDefault(a=>a.plantCode == StationCode);
+                var filteredPlant = plantList.Data.List.FirstOrDefault(a => a.plantCode == StationCode);
 
                 if (filteredPlant is null)
                 {
                     return Results.NoContent();
                 }
 
-               return Results.Ok(filteredPlant);
+                return Results.Ok(filteredPlant);
             })
             .Produces(200, typeof(PlantList))
             .Produces(204)
@@ -127,21 +125,21 @@ namespace er_transformer_huawei_int.EndPoints
             var content = new StringContent(JsonSerializer.Serialize(jsonRequest), Encoding.UTF8, "application/json");
 
             var response = await client.PostAsync(url, content);
-            if (response.IsSuccessStatusCode)
-            {
-                var jsonResponse = await response.Content.ReadAsStringAsync();
-                return Newtonsoft.Json.JsonConvert.DeserializeObject<PlantList>(jsonResponse);
-            }
-            else
+            if (!response.IsSuccessStatusCode)
             {
                 return null;
             }
+
+            var jsonResponse = await response.Content.ReadAsStringAsync();
+            return Newtonsoft.Json.JsonConvert.DeserializeObject<PlantList>(jsonResponse);
         }
 
-        private static async Task<string> GetXsrfTokenAsync()
+        private static async Task<string> GetXsrfTokenAsync(bool refreshToken = false)
         {
+            // TODO: Pasar credenciales a un archivo de configuración y posteriormente a un configserver
+            var loginJson = refreshToken ? "{\"userName\":\"EnergiaReal\",\"systemCode\":\"ERAPI@2021\"}" : "{\"userName\":\"Ereal_interno\",\"systemCode\":\"Prueba2024\"}";
+
             var loginUrl = "https://la5.fusionsolar.huawei.com/thirdData/login";
-            var loginJson = "{\"userName\":\"Ereal_interno\",\"systemCode\":\"Prueba2024\"}";
 
             using var loginClient = new HttpClient();
             var loginContent = new StringContent(loginJson, Encoding.UTF8, "application/json");
@@ -152,7 +150,106 @@ namespace er_transformer_huawei_int.EndPoints
                 return $"Error al obtener el token XSRF-TOKEN: {loginResponse.StatusCode}";
             }
 
-            return loginResponse.Headers.GetValues("XSRF-TOKEN").FirstOrDefault() ?? string.Empty;
+            try
+            {
+                return loginResponse.Headers.GetValues("XSRF-TOKEN").FirstOrDefault() ?? string.Empty;
+            }
+            catch (Exception)
+            {
+                return "Error -> No hay token disponible";
+            }
+        }
+
+        private static void GetTheLastFiveMinutes(RouteGroupBuilder rgb)
+        {
+            rgb.MapPost("/LastFiveMinutes", async (HttpContext context, [FromBody] FiveMinutesRequest request) =>
+            {
+                var result = await GetFiveMinutesResult(request);
+
+                if (result.ErrorCode == 401)
+                {
+                    result = await GetFiveMinutesResult(request, true);
+                }
+
+                return Results.Ok(result);
+            })
+            .Produces(200, typeof(ResponseModel<string>))
+            .Produces(204)
+            .WithTags("huawei")
+            .WithName("LastFiveMinutes")
+            .WithOpenApi();
+        }
+
+        private static void GetRealTimeInfo(RouteGroupBuilder rgb)
+        {
+            rgb.MapPost("/realTimeInfo", async (HttpContext context, [FromBody] FiveMinutesRequest request) =>
+            {
+                var result = await GetRealTimeResult(request);
+
+                if (result.ErrorCode == 401)
+                {
+                    result = await GetRealTimeResult(request, true);
+                }
+
+                return Results.Ok(result);
+            })
+            .Produces(200, typeof(ResponseModel<string>))
+            .Produces(204)
+            .WithTags("huawei")
+            .WithName("realTimeInfo")
+            .WithOpenApi();
+        }
+
+        private static async Task<ResponseModel<string>> GetFiveMinutesResult(FiveMinutesRequest request, bool refresh = false)
+        {
+            var xsrfToken = await GetXsrfTokenAsync(refresh);
+
+            if (string.IsNullOrEmpty(xsrfToken) || xsrfToken.Contains("Error"))
+            {
+                return new ResponseModel<string> { ErrorCode = 401, Success = false };
+            }
+
+            var url = "https://la5.fusionsolar.huawei.com/thirdData/getDevFiveMinutes";
+
+            using var client = new HttpClient();
+            client.DefaultRequestHeaders.Add("XSRF-TOKEN", xsrfToken);
+            var content = new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json");
+
+            var response = await client.PostAsync(url, content);
+            if (!response.IsSuccessStatusCode)
+            {
+                return new ResponseModel<string> { ErrorCode = -1, ErrorMessage = "No hay resultados disponibles.", Success = false };
+            }
+
+            var jsonResponse = await response.Content.ReadAsStringAsync();
+
+            return new ResponseModel<string> { Data = jsonResponse, Success = true };
+        }
+
+        private static async Task<ResponseModel<string>> GetRealTimeResult(FiveMinutesRequest request, bool refresh = false)
+        {
+            var xsrfToken = await GetXsrfTokenAsync(refresh);
+
+            if (string.IsNullOrEmpty(xsrfToken) || xsrfToken.Contains("Error"))
+            {
+                return new ResponseModel<string> { ErrorCode = 401, Success = false };
+            }
+
+            var url = "https://la5.fusionsolar.huawei.com/thirdData/getDevRealKpi";
+
+            using var client = new HttpClient();
+            client.DefaultRequestHeaders.Add("XSRF-TOKEN", xsrfToken);
+            var content = new StringContent(JsonSerializer.Serialize(new { request.devIds, request.devTypeId }), Encoding.UTF8, "application/json");
+
+            var response = await client.PostAsync(url, content);
+            if (!response.IsSuccessStatusCode)
+            {
+                return new ResponseModel<string> { ErrorCode = -1, ErrorMessage = "No hay resultados disponibles.", Success = false };
+            }
+
+            var jsonResponse = await response.Content.ReadAsStringAsync();
+
+            return new ResponseModel<string> { Data = jsonResponse, Success = true };
         }
     }
 }
