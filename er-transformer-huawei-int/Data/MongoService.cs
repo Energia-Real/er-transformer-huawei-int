@@ -41,16 +41,26 @@
 
                 // Crear un filtro para la consulta
                 var filtro = Builders<TokenDto>.Filter.Eq("Name", user);
+                var datetime = DateTime.Now.Kind;
+                // Crear un objeto de actualización para especificar los campos que se van a modificar
+                var updateDefinition = Builders<TokenDto>.Update
+                    .Set(x => x.Value, token)
+                    .Set(x => x.Date, DateTime.Now);
 
-                var newToken = new TokenDto { Name = user, Value = token };
+                var options = new FindOneAndUpdateOptions<TokenDto>
+                {
+                    IsUpsert = true, // Insertará el documento si no se encuentra uno con el filtro especificado
+                    ReturnDocument = ReturnDocument.After // Devolverá el documento actualizado
+                };
 
-                // Realizar la consulta y obtener el primer resultado que cumpla con el filtro
-                var resultado = await collection.FindOneAndReplaceAsync(filtro, newToken);
+                // Realizar la consulta y actualizar el documento si se encuentra, o insertar uno nuevo si no se encuentra
+                var resultado = await collection.FindOneAndUpdateAsync(filtro, updateDefinition, options);
 
                 if (resultado is null)
                 {
-                    // Guardar el nuevo token ya que no existe un documento con el usuario especificado
-                   await collection.InsertOneAsync(newToken);
+                    // No se encontró un documento, entonces insertamos uno nuevo
+                    var newToken = new TokenDto { Name = user, Value = token, Date = DateTime.Now };
+                    await collection.InsertOneAsync(newToken);
                     resultado = newToken;
                 }
 
