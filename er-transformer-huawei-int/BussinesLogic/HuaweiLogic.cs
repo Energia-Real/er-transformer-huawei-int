@@ -128,8 +128,8 @@ namespace er_transformer_huawei_int.BussinesLogic
             // como tenemos dos usuarios par adiferentes nedpoint de manera provisional se generan dos consultas depediendo al variable
             var user = refreshToken ? "EnergiaReal" : "Ereal_interno";
             var tokenResponse = await this.mongoService.GetToken(user);
-
-            if (tokenResponse.Count == 0 || requestToken)
+            
+            if (tokenResponse.Count > 0 || requestToken)
             {
                 // TODO: Pasar credenciales a un archivo de configuración y posteriormente a un configserver, tambien hay que quitar la logica del resfresh ya que el usuario en prod deberia de servir para todos los endpoint
                 var loginJson = refreshToken ? "{\"userName\":\"EnergiaReal\",\"systemCode\":\"ERAPI@2021\"}" : "{\"userName\":\"Ereal_interno\",\"systemCode\":\"Prueba2024\"}";
