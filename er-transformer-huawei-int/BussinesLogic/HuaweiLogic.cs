@@ -130,7 +130,7 @@ namespace er_transformer_huawei_int.BussinesLogic
             var tokenResponse = await this.mongoService.GetToken(user);
 
             var newToken = tokenResponse.Any();
-            var diff = newToken ? tokenResponse.First().Date - DateTime.Now : TimeSpan.FromMinutes(50);
+            var diff = newToken ? DateTime.Now - tokenResponse.First().Date : TimeSpan.FromMinutes(50);
             newToken = diff.TotalMinutes >= 30;
 
             if (newToken || requestToken)
