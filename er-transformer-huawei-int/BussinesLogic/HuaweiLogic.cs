@@ -1,5 +1,6 @@
 ﻿using er_transformer_huawei_int.Data;
 using er_transformer_huawei_int.Models;
+using Microsoft.ApplicationInsights;
 using MongoDB.Driver;
 using System.Text;
 using System.Text.Json;
@@ -10,13 +11,16 @@ namespace er_transformer_huawei_int.BussinesLogic
     {
         private readonly MongoService mongoService;
         private readonly IConfiguration _configuration;
-
-        public HuaweiLogic(IConfiguration configuration)
+        private static ILogger _logger;
+        public HuaweiLogic(IConfiguration configuration )
         {
             _configuration = configuration;
             mongoService = new MongoService(configuration);
         }
-
+        public static void Setconfiguration(ILogger<HuaweiLogic> logger)
+        {
+            _logger = logger;
+        }
 
         public async Task<ResponseModel<string>> GetFiveMinutesResult(FiveMinutesRequest request, bool refresh = false)
         {
@@ -131,7 +135,8 @@ namespace er_transformer_huawei_int.BussinesLogic
 
             var newToken = tokenResponse.Any();
             var diff = newToken ? DateTime.Now - tokenResponse.First().Date : TimeSpan.FromMinutes(50);
-            newToken = diff.TotalMinutes >= 30;
+            newToken = diff.TotalMinutes >= 30 || diff.TotalMinutes < 0;
+            _logger.LogInformation($"Esta es la fecha que se esta obteniendo de la base de mongo-> {tokenResponse.FirstOrDefault()?.Date} : -> resultado de si obtendra o no un nuevo token->{newToken}");
 
             if (newToken || requestToken)
             {
@@ -146,6 +151,7 @@ namespace er_transformer_huawei_int.BussinesLogic
                 var loginResponse = await loginClient.PostAsync(loginUrl, loginContent);
                 if (!loginResponse.IsSuccessStatusCode)
                 {
+                    _logger.LogError($"Error al obtener el token XSRF-TOKEN: {loginResponse.StatusCode}:-> {loginResponse.Content}");
                     return $"Error al obtener el token XSRF-TOKEN: {loginResponse.StatusCode}";
                 }
 
@@ -155,11 +161,14 @@ namespace er_transformer_huawei_int.BussinesLogic
                     await this.mongoService.SetToken(responsetoken, user);
                     return responsetoken;
                 }
-                catch (Exception)
+                catch (Exception ex)
                 {
+                    _logger.LogError(ex, "Error intentando obtener el token");
                     return "Error -> No hay token disponible";
                 }
             }
+
+            _logger.LogInformation($"Token obtenido exitosamente a las {DateTime.Now}");
 
             return tokenResponse.First().Value;
         }
