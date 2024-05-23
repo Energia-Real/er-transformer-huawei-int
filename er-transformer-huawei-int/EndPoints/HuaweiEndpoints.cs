@@ -28,6 +28,7 @@ namespace er_transformer_huawei_int.EndPoints
             GetTheLastFiveMinutes(routeBuilder);
             GetRealTimeInfo(routeBuilder);
             GetStationHealtCheck(routeBuilder);
+            GetMonthResume(routeBuilder);
         }
 
         private static void GetPlantListMethod(RouteGroupBuilder rgb)
@@ -174,6 +175,26 @@ namespace er_transformer_huawei_int.EndPoints
             .Produces(204)
             .WithTags("huawei")
             .WithName("getStationHealtCheck")
+            .WithOpenApi();
+        }
+
+        private static void GetMonthResume(RouteGroupBuilder rgb)
+        {
+            rgb.MapPost("/GetMonthResume", async (HttpContext context, [FromBody] StationAndCollectTimeRequest request) =>
+            {
+                var result = await new HuaweiLogic(_configuration).GetMonthResumeResult(request);
+
+                if (result.ErrorCode == 401)
+                {
+                    result = await new HuaweiLogic(_configuration).GetMonthResumeResult(request, true);
+                }
+
+                return Results.Ok(result);
+            })
+            .Produces(200, typeof(ResponseModel<string>))
+            .Produces(204)
+            .WithTags("huawei")
+            .WithName("GetMonthResume")
             .WithOpenApi();
         }
 

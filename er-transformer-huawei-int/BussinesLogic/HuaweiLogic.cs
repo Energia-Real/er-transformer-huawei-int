@@ -173,5 +173,30 @@ namespace er_transformer_huawei_int.BussinesLogic
             return tokenResponse.First().Value;
         }
 
+        public async Task<ResponseModel<string>> GetMonthResumeResult(StationAndCollectTimeRequest request, bool refresh = false)
+        {
+            var xsrfToken = await GetXsrfTokenAsync(refresh);
+
+            if (string.IsNullOrEmpty(xsrfToken) || xsrfToken.Contains("Error"))
+            {
+                return new ResponseModel<string> { ErrorCode = 401, Success = false };
+            }
+
+            var url = "https://la5.fusionsolar.huawei.com/thirdData/getKpiStationMonth";
+
+            using var client = new HttpClient();
+            client.DefaultRequestHeaders.Add("XSRF-TOKEN", xsrfToken);
+            var content = new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json");
+
+            var response = await client.PostAsync(url, content);
+            if (!response.IsSuccessStatusCode)
+            {
+                return new ResponseModel<string> { ErrorCode = -1, ErrorMessage = "No hay resultados disponibles.", Success = false };
+            }
+
+            var jsonResponse = await response.Content.ReadAsStringAsync();
+
+            return new ResponseModel<string> { Data = jsonResponse, Success = true };
+        }
     }
 }
