@@ -126,6 +126,7 @@ namespace er_transformer_huawei_int.BussinesLogic
             return Newtonsoft.Json.JsonConvert.DeserializeObject<PlantList>(jsonResponse);
         }
 
+
         public async Task<string> GetXsrfTokenAsync(bool refreshToken = false, bool requestToken = false)
         {
             // valida primero si hay un token en la bd de mongo
@@ -183,6 +184,58 @@ namespace er_transformer_huawei_int.BussinesLogic
             }
 
             var url = "https://la5.fusionsolar.huawei.com/thirdData/getKpiStationMonth";
+
+            using var client = new HttpClient();
+            client.DefaultRequestHeaders.Add("XSRF-TOKEN", xsrfToken);
+            var content = new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json");
+
+            var response = await client.PostAsync(url, content);
+            if (!response.IsSuccessStatusCode)
+            {
+                return new ResponseModel<string> { ErrorCode = -1, ErrorMessage = "No hay resultados disponibles.", Success = false };
+            }
+
+            var jsonResponse = await response.Content.ReadAsStringAsync();
+
+            return new ResponseModel<string> { Data = jsonResponse, Success = true };
+        }
+
+        public async Task<ResponseModel<string>> GetDailyResumeResult(StationAndCollectTimeRequest request, bool refresh = false) 
+        {
+            var xsrfToken = await GetXsrfTokenAsync(refresh);
+
+            if (string.IsNullOrEmpty(xsrfToken) || xsrfToken.Contains("Error"))
+            {
+                return new ResponseModel<string> { ErrorCode = 401, Success = false };
+            }
+
+            var url = "https://la5.fusionsolar.huawei.com/thirdData/getKpiStationDay";
+
+            using var client = new HttpClient();
+            client.DefaultRequestHeaders.Add("XSRF-TOKEN", xsrfToken);
+            var content = new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json");
+
+            var response = await client.PostAsync(url, content);
+            if (!response.IsSuccessStatusCode)
+            {
+                return new ResponseModel<string> { ErrorCode = -1, ErrorMessage = "No hay resultados disponibles.", Success = false };
+            }
+
+            var jsonResponse = await response.Content.ReadAsStringAsync();
+
+            return new ResponseModel<string> { Data = jsonResponse, Success = true };
+        }
+
+        public async Task<ResponseModel<string>> GetHourResumeResult(StationAndCollectTimeRequest request, bool refresh = false)
+        {
+            var xsrfToken = await GetXsrfTokenAsync(refresh);
+
+            if (string.IsNullOrEmpty(xsrfToken) || xsrfToken.Contains("Error"))
+            {
+                return new ResponseModel<string> { ErrorCode = 401, Success = false };
+            }
+
+            var url = "https://la5.fusionsolar.huawei.com/thirdData/getKpiStationHour";
 
             using var client = new HttpClient();
             client.DefaultRequestHeaders.Add("XSRF-TOKEN", xsrfToken);

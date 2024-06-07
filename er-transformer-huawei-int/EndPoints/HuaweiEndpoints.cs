@@ -3,9 +3,7 @@ using System.Text.Json;
 using System.Text;
 using Microsoft.AspNetCore.Mvc;
 using er_transformer_huawei_int.Models;
-using er_transformer_huawei_int.Enums;
 using er_transformer_huawei_int.BussinesLogic;
-using System.Runtime.CompilerServices;
 
 namespace er_transformer_huawei_int.EndPoints
 {
@@ -29,6 +27,8 @@ namespace er_transformer_huawei_int.EndPoints
             GetRealTimeInfo(routeBuilder);
             GetStationHealtCheck(routeBuilder);
             GetMonthResume(routeBuilder);
+            GetDailyResume(routeBuilder);
+            GetHourResume(routeBuilder);
         }
 
         private static void GetPlantListMethod(RouteGroupBuilder rgb)
@@ -198,5 +198,44 @@ namespace er_transformer_huawei_int.EndPoints
             .WithOpenApi();
         }
 
+        private static void GetDailyResume(RouteGroupBuilder rgb)
+        {
+            rgb.MapPost("/GetDailyResume", async (HttpContext context, [FromBody] StationAndCollectTimeRequest request) =>
+            {
+                var result = await new HuaweiLogic(_configuration).GetDailyResumeResult(request);
+
+                if (result.ErrorCode == 401)
+                {
+                    result = await new HuaweiLogic(_configuration).GetDailyResumeResult(request, true);
+                }
+
+                return Results.Ok(result);
+            })
+            .Produces(200, typeof(ResponseModel<string>))
+            .Produces(204)
+            .WithTags("huawei")
+            .WithName("GetDailyResume")
+            .WithOpenApi();
+        }
+
+        private static void GetHourResume(RouteGroupBuilder rgb)
+        {
+            rgb.MapPost("/GetHourResume", async (HttpContext context, [FromBody] StationAndCollectTimeRequest request) =>
+            {
+                var result = await new HuaweiLogic(_configuration).GetDailyResumeResult(request);
+
+                if (result.ErrorCode == 401)
+                {
+                    result = await new HuaweiLogic(_configuration).GetDailyResumeResult(request, true);
+                }
+
+                return Results.Ok(result);
+            })
+            .Produces(200, typeof(ResponseModel<string>))
+            .Produces(204)
+            .WithTags("huawei")
+            .WithName("GetHourResume")
+            .WithOpenApi();
+        }
     }
 }
