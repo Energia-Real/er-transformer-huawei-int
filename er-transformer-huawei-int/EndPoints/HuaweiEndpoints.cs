@@ -222,11 +222,11 @@ namespace er_transformer_huawei_int.EndPoints
         {
             rgb.MapPost("/GetHourResume", async (HttpContext context, [FromBody] StationAndCollectTimeRequest request) =>
             {
-                var result = await new HuaweiLogic(_configuration).GetDailyResumeResult(request);
+                var result = await new HuaweiLogic(_configuration).GetHourResumeResult(request);
 
                 if (result.ErrorCode == 401)
                 {
-                    result = await new HuaweiLogic(_configuration).GetDailyResumeResult(request, true);
+                    result = await new HuaweiLogic(_configuration).GetHourResumeResult(request, true);
                 }
 
                 return Results.Ok(result);
